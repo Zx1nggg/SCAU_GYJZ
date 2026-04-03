@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.SCAUteam11.GYJZ.mapper.mysql.DonationMapper">
+
+
+    <select id="selectDonationsCountByProjectId" resultType="java.lang.Long">
+        select count(distinct donor_phone) as count
+        from donation
+        where project_id = #{projectId} and donation_status = 1
+    </select>
+    <select id="selectMaxDonationByProjectId" resultType="java.lang.Double">
+        select max(amount) as maxDonation
+        from donation
+        where project_id = #{projectId} and donation_status = 1
+    </select>
+    <select id="selectMinDonationByProjectId" resultType="java.lang.Double">
+        select min(amount) as minDonation
+        from donation
+        where project_id = #{projectId} and donation_status = 1
+    </select>
+    <select id="selectDonationCountByProjectId" resultType="java.lang.Long">
+        select count(*) as count
+        from donation
+        where project_id = #{projectId} and donation_status = 1
+    </select>
+    <select id="getDonorStatistic" resultType="com.SCAUteam11.GYJZ.DTO.Donation.DonorStatisticResponse">
+        SELECT
+        IFNULL(SUM(amount),0) AS totalAmount,
+        COUNT(*) AS totalCount,
+        COUNT(DISTINCT project_id) AS projectCount
+        FROM donation
+        WHERE user_id = #{userId}
+        AND donation_status = 1
+    </select>
+    <select id="selectDonationsWithProject" resultType="com.SCAUteam11.GYJZ.entity.mysql.Donation">
+        SELECT d.*, p.title AS projectTitle
+        FROM donation d
+        LEFT JOIN project p ON d.project_id = p.id
+        <where>
+         <if test='orgId != null'> AND p.org_id = #{orgId} </if>
+         <if test='projectId != null'> AND d.project_id = #{projectId} </if>
+        </where>
+        ORDER BY d.donation_time DESC
+    </select>
+</mapper>

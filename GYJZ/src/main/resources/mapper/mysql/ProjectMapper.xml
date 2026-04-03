@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.SCAUteam11.GYJZ.mapper.mysql.ProjectMapper">
+
+    <select id="selectTotalProject" resultType="java.lang.Long">
+        select count(*) as projectCount
+        from project
+        where org_id = #{orgId}
+    </select>
+    <select id="selectTotalDonor" resultType="java.lang.Long">
+        SELECT COUNT(distinct donor_phone)
+        FROM donation
+        WHERE project_id IN (
+        SELECT id
+        FROM project
+        WHERE org_id = #{orgId}
+        );
+    </select>
+    <select id="selectTotalAmount" resultType="java.math.BigDecimal">
+        select sum(current_amount) as totalAmount
+        from project
+        where org_id = #{orgId}
+    </select>
+</mapper>
