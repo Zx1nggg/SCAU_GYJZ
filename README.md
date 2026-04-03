@@ -1,37 +1,36 @@
-# SCAU-GYJZ
+# 🎗️ 公益捐赠管理系统 (Public Welfare Donation Management System)
 
-#### 介绍
-华南农大组11所有
+> 一个透明、高效、易用的公益项目与捐赠记录管理平台。
 
-#### 软件架构
-软件架构说明
+## 📖 项目简介
+本项目由华南农大组11开发，旨在提供一个标准化的公益捐赠管理解决方案。系统涵盖捐赠项目管理、捐赠记录追踪、用户及机构认证、以及电子票据生成等功能，致力于提升公益活动的透明度与管理效率。
 
+## ✨ 核心功能
+* **🎁 项目管理**：捐赠项目的发布、下架、进度追踪与统计分析。
+* **❤️ 捐赠管理**：支持捐赠记录生成、状态追踪及个人/机构捐赠统计。
+* **👥 用户与机构管理**：捐赠人注册登录、机构入驻申请与多级权限审核。
+* **📄 电子票据**：模拟生成与管理捐赠电子票据（支持PDF下载与推送）。
+* **📊 数据可视化**：直观展示项目募资进度与捐赠趋势。
 
-#### 安装教程
+## 🛠️ 技术栈
+* **后端**：Java / Spring Boot 3.5.12 / MyBatis-Plus
+* **数据库**：MySQL 8.0 / Redis
+* **API 规范**：RESTful API / Swagger (OpenAPI 3.0)
+* **其他工具**：Maven / Git 
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## 🚀 快速开始
 
-#### 使用说明
+### 1. 环境准备
+确保你的本地开发环境已安装以下软件：
+* JDK 21+
+* MySQL 8.4+
+* Maven 3.9+
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+### 2. 数据库配置
+1. 在本地 MySQL 中创建数据库：`create database gyjz;`
+2. 导入初始化 SQL 脚本：执行项目根目录下的 `sql/dump-gyjz-202604031137.sql`。
 
-#### 参与贡献
-
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
-
-
-#### 特技
-
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+### 3. 项目启动
+1. 克隆本项目到本地：
+   ```bash
+   git clone https://gitee.com/wumengyun520/scau-gyjz.git
