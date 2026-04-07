@@ -27,12 +27,21 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 // 2. 禁用 Session（我们用 JWT，属于无状态）
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        .exceptionHandling(exception -> exception
+                                .authenticationEntryPoint((request, response, authException) -> {
+                                    response.setContentType("application/json;charset=utf-8");
+                                    response.setStatus(401);
+                                    response.getWriter().write("{\"code\": 401, \"msg\": \"登录已过期，请重新登录\"}");
+                                })
+                        )
                 // 3. 配置路径拦截规则
                 .authorizeHttpRequests(auth -> auth
+                        // 放行所有跨域预检的 OPTIONS 请求！防止拦截器死循环！
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // 图片路径也放行了
                         .requestMatchers("/images/**").permitAll()
-                        // 下面这些路径放行（不登录也能访问），比如登录、注册、查看公开的项目列表等
-                        .requestMatchers("/api/v1/donor/Login","/api/v1/donor/Register","/api/v1/admin/Login","/api/v1/admin/registerApply").permitAll()
+                        // 下面这些路径放行（不登录也能访问），比如登录、注册、查看公开的项目列表等 JM测试查看浏览列表
+                        .requestMatchers("/api/v1/donor/Login","/api/v1/donor/Register","/api/v1/admin/Login","/api/v1/admin/registerApply","/api/v1/donations").permitAll()
                         // 鸿蒙 App 即使没有 Token 也能正常浏览公益项目
                         .requestMatchers(HttpMethod.GET, "/api/v1/projects", "/api/v1/projects/**").permitAll()
                         // Swagger 接口文档也放行（使用了 springdoc）

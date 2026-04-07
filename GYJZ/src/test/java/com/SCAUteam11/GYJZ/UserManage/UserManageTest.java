@@ -2,10 +2,12 @@ package com.SCAUteam11.GYJZ.UserManage;
 
 import com.SCAUteam11.GYJZ.entity.mysql.RegisterApply;
 import com.SCAUteam11.GYJZ.entity.mysql.User;
+import com.SCAUteam11.GYJZ.mapper.mysql.UserMapper;
 import com.SCAUteam11.GYJZ.service.IUserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -14,6 +16,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 public class UserManageTest {
     @Autowired
     private IUserService userService;
+    @Autowired
+    private UserMapper userMapper;
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;// 密码加密器
     @Test
     public void donorLoginTest(){
         //测试捐赠人登录
@@ -108,6 +114,15 @@ public class UserManageTest {
         System.out.println("不通过原因: " + reason);
 
         // 验证：可以通过查询数据库确认申请状态变为2（不通过）
+    }
+    @Test
+    public void submitNewPassword(){
+        Long userId= 1L;
+        String newPassword = "qb8888";
+        User user = new User();
+        user.setId(userId);
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userMapper.updateById(user);
     }
 }
 

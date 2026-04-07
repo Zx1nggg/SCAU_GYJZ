@@ -33,4 +33,4 @@
 ### 3. 项目启动
 1. 克隆本项目到本地：
    ```bash
-   git clone [你的Git仓库地址]
+   git clone https://gitee.com/wumengyun520/scau-gyjz.git

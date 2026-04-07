@@ -15,4 +15,5 @@ public class DonorLoginResponse {
     private String avatar;
     private String token;
     private Integer userStatus;
+    private String createTime;
 }

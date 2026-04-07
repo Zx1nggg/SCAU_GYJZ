@@ -13,20 +13,26 @@ import java.util.UUID;
 public class FileController {
 
     /**
-     * 上传项目封面图
-     * 接口路径：POST /api/v1/upload/project
+     * 通用图片上传接口 (替代原来的 /project 接口)
+     * 接口路径：POST /api/v1/upload/{type}
+     * 说明：type 会自动决定文件夹名称，如传 logo 就保存到 project-images/logo 下
      */
-    @PostMapping("/project")
-    public Result uploadProjectImage(@RequestParam("file") MultipartFile file) {
+    @PostMapping("/{type}")
+    public Result uploadImage(@PathVariable String type, @RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return Result.fail("请选择要上传的图片");
+        }
+
+        // 安全校验：防止恶意路径穿越
+        if (!type.matches("^[a-zA-Z0-9_-]+$")) {
+            type = "other";
         }
 
         // ========== 路径同步逻辑（与 WebMvcConfig 保持高度一致） ==========
         String userDir = System.getProperty("user.dir");
         String folderName = "project-images";
-        // 定义子文件夹名称，用于分类存储项目图片
-        String subFolder = "project";
+        // 🌟 动态子文件夹名称：根据前端传来的 type 决定
+        String subFolder = type;
 
         // 1. 探测基础路径：优先使用当前目录，不存在则尝试探测父级目录
         File currentDirFolder = new File(userDir, folderName);
@@ -45,7 +51,7 @@ public class FileController {
             }
         }
 
-        // 2. 创建具体的项目图片存储子目录 (project-images/project)
+        // 2. 🌟 创建具体的图片存储子目录 (例如：project-images/logo)
         File targetFolder = new File(baseFolder, subFolder);
         if (!targetFolder.exists()) {
             boolean created = targetFolder.mkdirs();
@@ -70,8 +76,8 @@ public class FileController {
             File dest = new File(storagePath + newFilename);
             file.transferTo(dest);
 
-            // 5. 返回虚拟访问路径，增加 /project/ 前缀，确保与旧数据格式对齐
-            String accessUrl = "/images/project/" + newFilename;
+            // 5. 🌟 返回虚拟访问路径，动态拼接 type
+            String accessUrl = "/images/" + type + "/" + newFilename;
 
             System.out.println(">>> [文件上传成功]");
             System.out.println(">>> 物理存储路径: " + dest.getAbsolutePath());

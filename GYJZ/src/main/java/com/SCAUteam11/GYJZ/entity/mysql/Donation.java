@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.*;
 import lombok.*;
 import org.apache.ibatis.type.Alias;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -14,7 +15,8 @@ import java.time.LocalDateTime;
 @Setter
 @TableName("donation")
 @Alias("Donation")
-public class Donation {
+public class Donation implements Serializable {
+    private static final long serialVersionUID = 1L; // 序列化版本号
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long projectId;

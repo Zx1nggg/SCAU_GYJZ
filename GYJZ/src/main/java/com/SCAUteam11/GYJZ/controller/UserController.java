@@ -2,15 +2,24 @@ package com.SCAUteam11.GYJZ.controller;
 
 import com.SCAUteam11.GYJZ.DTO.AdminLoginResponse;
 import com.SCAUteam11.GYJZ.DTO.DonorLoginResponse;
+import com.SCAUteam11.GYJZ.DTO.User.UserUpdateRequest;
+import com.SCAUteam11.GYJZ.DTO.User.UserUpdateResponse;
 import com.SCAUteam11.GYJZ.entity.Result;
 import com.SCAUteam11.GYJZ.entity.mysql.RegisterApply;
 import com.SCAUteam11.GYJZ.entity.mysql.User;
 import com.SCAUteam11.GYJZ.service.IUserService;
 import com.SCAUteam11.GYJZ.utils.JwtUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -38,6 +47,7 @@ public class UserController {
             data.setPhone(user1.getPhone());
             data.setAvatar(user1.getAvatar());
             data.setUserStatus(user1.getUserStatus());
+            data.setCreateTime(String.valueOf(user1.getCreateTime()));
             // 2. 将 Token 放入返回对象中
             data.setToken(token);
 
@@ -88,6 +98,8 @@ public class UserController {
         return Result.success();
     }
 
+
+
     @PostMapping("/admin/approveApply")
     public  Result approveApply(@RequestBody Long applyId,Long auditorId){
         try {
@@ -99,6 +111,24 @@ public class UserController {
         } catch (Exception e) {
             e.printStackTrace();
             return Result.fail("系统异常，审核失败");
+        }
+    }
+    /**
+     * 🌟 统一的用户资料更新接口（捐赠人、机构管理员通用）
+     * 路径：PUT /api/v1/users/{userId}
+     * 前端通过 authStore 拿到 userId 直接拼在路径上
+     */
+    @PutMapping("/users/{userId}")
+    public Result updateUser(@PathVariable Long userId, @RequestBody UserUpdateRequest request) {
+        try {
+            // 将更新逻辑全权交由 Service 处理
+            UserUpdateResponse data = userService.updateUser(userId, request);
+            return Result.success(data);
+        } catch (RuntimeException e) {
+            return Result.fail(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail("系统繁忙，更新失败");
         }
     }
 }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.SCAUteam11.GYJZ.mapper.mysql.SubscriptionMapper">
+
+    <select id="selectMySubscriptions" resultType="com.SCAUteam11.GYJZ.DTO.Subscription.SubscriptionVO">
+        SELECT s.id, s.project_id, s.create_time, p.title as project_title, p.project_status as project_status
+        FROM subscription s
+        LEFT JOIN project p ON s.project_id = p.id
+        WHERE s.user_id = #{userId}
+        ORDER BY s.create_time DESC
+    </select>
+</mapper>

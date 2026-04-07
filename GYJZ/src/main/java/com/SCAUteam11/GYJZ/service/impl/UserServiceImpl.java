@@ -1,5 +1,7 @@
 package com.SCAUteam11.GYJZ.service.impl;
 
+import com.SCAUteam11.GYJZ.DTO.User.UserUpdateRequest;
+import com.SCAUteam11.GYJZ.DTO.User.UserUpdateResponse;
 import com.SCAUteam11.GYJZ.entity.mysql.Organization;
 import com.SCAUteam11.GYJZ.entity.mysql.RegisterApply;
 import com.SCAUteam11.GYJZ.entity.mysql.User;
@@ -10,6 +12,7 @@ import com.SCAUteam11.GYJZ.service.IUserService;
 import com.SCAUteam11.GYJZ.utils.RedisUtil;
 import com.SCAUteam11.GYJZ.utils.UsernameGenerator;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,12 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -39,30 +48,33 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     // =========== 登录相关 ===========
     @Override
     public User donorLogin(User user) {
-        // 检查用户ID是否为空或密码是否为空字符串
         if (ObjectUtils.isEmpty(user.getPhone()) || !StringUtils.hasLength(user.getPassword())) {
             throw new RuntimeException("手机号或密码不能为空");
         }
-        // 尝试从Redis缓存中获取用户信息
-        Object o = redisUtil.get(String.valueOf(user.getPhone()));
+        // 使用手机号作为 Redis 的 Key
+        String redisKey = String.valueOf(user.getPhone());
+
+        // 1. 尝试从Redis获取
+        Object o = redisUtil.get(redisKey);
+        User targetUser = null;
+
         if (o == null) {
-            // 缓存中没有数据，就要区数据库里面找
-            LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper
-                    .eq(User::getPhone, user.getPhone());
-            User targetUser = userMapper.selectOne(queryWrapper);
-            if (targetUser != null) {
-                // 将用户信息存进Redis
-                redisUtil.set(String.valueOf(user.getPhone()), targetUser);
-                return targetUser;
-            }else{
+            // 2. 缓存没有，查数据库
+            targetUser = baseMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getPhone, user.getPhone()));
+            if (targetUser == null) {
                 throw new RuntimeException("用户名或密码错误");
             }
+        } else {
+            targetUser = (User) o;
         }
-        // 如果缓存中有数据，用户信息更新需要删除Redis中的数据
-        User targetUser = (User) o;
-        // 检查用户ID和密码是否匹配
+
+        // 3. 统一校验密码（修复了原先缓存为空时不校验密码的严重安全漏洞！）
         if (passwordEncoder.matches(user.getPassword(), targetUser.getPassword())) {
+            // 4. 如果密码正确，且数据是从数据库拿出来的，就存入 Redis
+            if (o == null) {
+                // 使用三个参数的 set 方法：设置 1800 秒（30分钟）的过期时间
+                redisUtil.set(redisKey, targetUser, 1800);
+            }
             return targetUser;
         } else {
             throw new RuntimeException("用户名或密码错误");
@@ -71,30 +83,30 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Override
     public User adminLogin(User user){
-        // 检查用户名是否为空或密码是否为空字符串
         if (!StringUtils.hasLength(user.getUsername()) || !StringUtils.hasLength(user.getPassword())) {
             throw new RuntimeException("用户或密码不能为空");
         }
-        // 尝试从Redis缓存中获取用户信息
-        Object o = redisUtil.get(String.valueOf(user.getUsername()));
+
+        // 使用用户名作为 Redis 的 Key
+        String redisKey = String.valueOf(user.getUsername());
+        Object o = redisUtil.get(redisKey);
+        User targetUser = null;
+
         if (o == null) {
-            // 缓存中没有数据，就要区数据库里面找
-            LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper
-                    .eq(User::getUsername, user.getUsername());
-            User targetUser = userMapper.selectOne(queryWrapper);
-            if (targetUser != null) {
-                // 将用户信息存进Redis
-                redisUtil.set(String.valueOf(user.getUsername()), targetUser);
-                return targetUser;
-            }else{
+            targetUser = baseMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, user.getUsername()));
+            if (targetUser == null) {
                 throw new RuntimeException("用户名或密码错误");
             }
+        } else {
+            targetUser = (User) o;
         }
-        // 如果缓存中有数据，用户信息更新需要删除Redis中的数据
-        User targetUser = (User) o;
-        // 检查用户ID和密码是否匹配
+
+        // 统一校验密码
         if (passwordEncoder.matches(user.getPassword(), targetUser.getPassword())) {
+            // 密码正确且未缓存，则存入缓存，过期时间 1800 秒
+            if (o == null) {
+                redisUtil.set(redisKey, targetUser, 1800);
+            }
             return targetUser;
         } else {
             throw new RuntimeException("用户名或密码错误");
@@ -311,6 +323,61 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         log.info("=================================");
 
     }
+
+    /**
+     * 更新用户资料，并处理双表联动
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public UserUpdateResponse updateUser(Long userId, UserUpdateRequest request) {
+        // 1. 获取数据库当前用户信息
+        User user = baseMapper.selectById(userId);
+        if (user == null) {
+            throw new RuntimeException("该用户不存在");
+        }
+
+        // 2. 更新 User 表基础字段 (捐赠人和管理员共有的信息)
+        if (request.getNickname() != null) user.setNickname(request.getNickname());
+        if (request.getPhone() != null) user.setPhone(request.getPhone());
+        if (request.getAvatar() != null) user.setAvatar(request.getAvatar());
+
+//        user.setUpdateTime(LocalDateTime.now());
+        baseMapper.updateById(user);
+
+        // 3. 【核心判定】如果是机构管理员 (Role: 2)，需要同步更新 organization 表的联系人信息
+        if (user.getRole() != null && user.getRole() == 2 && user.getOrgId() != null) {
+            Organization org = organizationMapper.selectById(user.getOrgId());
+            if (org != null) {
+                // 将管理员修改后的 "昵称/真实姓名" 映射为机构的 "联系人"
+                if (request.getNickname() != null) {
+                    org.setContactPerson(request.getNickname());
+                }
+                // 将管理员修改后的 "手机号" 映射为机构的 "联系电话"
+                if (request.getPhone() != null) {
+                    org.setContactPhone(request.getPhone());
+                }
+
+                org.setUpdateTime(LocalDateTime.now());
+                organizationMapper.updateById(org);
+            }
+        }
+        // 更新完删除旧的redis缓存
+        if (StringUtils.hasLength(user.getPhone())) {
+            redisUtil.del(String.valueOf(user.getPhone()));
+        }
+        if (StringUtils.hasLength(user.getUsername())) {
+            redisUtil.del(String.valueOf(user.getUsername()));
+        }
+
+        // 4. 构造并返回结果对象
+        UserUpdateResponse response = new UserUpdateResponse();
+        response.setSuccess(true);
+
+        return response;
+    }
+
+
+
 
 
 }
