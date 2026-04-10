@@ -7,15 +7,27 @@ spring:
     redis: #redis配置
       host: 127.0.0.1
       port: 6379
-      password:
+      password: wumengyun520.
       database: 0
 
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
-    username:
-    password:
+    username: root
+    password: wumengyun520.
     url: jdbc:mysql://localhost:3306/gyjz?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+  ai:
+    openai:
+      # LM Studio 的默认本地监听端口
+      base-url: http://127.0.0.1:1234
+      # LM Studio 实际上不需要秘钥，但 Spring AI 强制要求不能为 null，随便写一个
+      api-key: lm-studio
+      chat:
+        options:
+          # 在 LM Studio 里加载的模型名字
+          model: qwen2.5-3b-instruct #用一下千问3B,因为我的电脑太卡了
+          stream: false #是否流式返回
 
   #opengauss相关的配置，占位区
 
