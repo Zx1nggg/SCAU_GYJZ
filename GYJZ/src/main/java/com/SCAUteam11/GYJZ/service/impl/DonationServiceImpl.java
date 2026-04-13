@@ -2,11 +2,13 @@ package com.SCAUteam11.GYJZ.service.impl;
 
 import com.SCAUteam11.GYJZ.DTO.Donation.DonationRecordDTO;
 import com.SCAUteam11.GYJZ.DTO.Donation.DonorStatisticResponse;
-import com.SCAUteam11.GYJZ.entity.mysql.Donation;
-import com.SCAUteam11.GYJZ.entity.mysql.Project;
+import com.SCAUteam11.GYJZ.entity.mysql.*;
 import com.SCAUteam11.GYJZ.mapper.mysql.DonationMapper;
 import com.SCAUteam11.GYJZ.mapper.mysql.ProjectMapper;
+import com.SCAUteam11.GYJZ.mapper.mysql.SubscriptionMapper;
+import com.SCAUteam11.GYJZ.mapper.mysql.UserMapper;
 import com.SCAUteam11.GYJZ.service.IDonationService;
+import com.SCAUteam11.GYJZ.utils.HuaweiPushUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -29,6 +31,14 @@ public class DonationServiceImpl extends ServiceImpl<DonationMapper, Donation> i
     private DonationMapper donationMapper;
     @Autowired
     private ProjectMapper projectMapper;
+    @Autowired
+    private SubscriptionMapper subscriptionMapper;
+    @Autowired
+    private HuaweiPushUtil huaweiPushUtil;
+    @Autowired
+    private UserMapper userMapper;
+    @Autowired
+    private PushRecordService pushRecordService; // 注入推送记录服务
 
     @Override
     public boolean addDonation(Donation donation) {
@@ -220,11 +230,11 @@ public class DonationServiceImpl extends ServiceImpl<DonationMapper, Donation> i
 
         // 3. 补全后端负责生成的属性
         // 将凭证号总长度控制在20个字符以内。GY(2位) + 时间戳(13位) + 随机字符(4位) = 19位
-        String certNo = "GY" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+        String certNo = "GY" + System.currentTimeMillis() + java.util.UUID.randomUUID().toString().substring(0, 4).toUpperCase();
         donation.setCertificateNo(certNo);
 
-        donation.setDonationTime(LocalDateTime.now());
-        donation.setCreateTime(LocalDateTime.now());
+        donation.setDonationTime(java.time.LocalDateTime.now());
+        donation.setCreateTime(java.time.LocalDateTime.now());
 
         // 确保状态正确
         if (donation.getDonationStatus() == null) {
@@ -237,22 +247,24 @@ public class DonationServiceImpl extends ServiceImpl<DonationMapper, Donation> i
             donation.setPayment("模拟支付");
         }
 
-        // 4. 执行 SQL 一：插入捐赠记录表 (使用 ServiceImpl 自带的 baseMapper)
+        // 4. 执行 SQL 一：插入捐赠记录表
         int insertResult = baseMapper.insert(donation);
         if (insertResult <= 0) {
             throw new RuntimeException("生成捐赠记录失败");
         }
 
         // 5. 执行 SQL 二：更新项目的当前筹款金额
-        BigDecimal newAmount = project.getCurrentAmount().add(donation.getAmount());
+        java.math.BigDecimal newAmount = project.getCurrentAmount().add(donation.getAmount());
         project.setCurrentAmount(newAmount);
 
+        // 新增一个标记，用于记录本次捐款是否刚好让项目达标
+        boolean isTargetReached = false;
+
         // 检查是否筹款满额
-        // compareTo 返回 1 表示 newAmount > targetAmount
-        // compareTo 返回 0 表示 newAmount == targetAmount
         if (newAmount.compareTo(project.getTargetAmount()) >= 0) {
             System.out.println(">>> 项目 [" + project.getTitle() + "] 筹款已达标，自动切换为结束状态");
             project.setProjectStatus(2); // 2-已结束
+            isTargetReached = true;      // 标记达标
         }
 
         int updateResult = projectMapper.updateById(project);
@@ -261,7 +273,75 @@ public class DonationServiceImpl extends ServiceImpl<DonationMapper, Donation> i
             throw new RuntimeException("更新项目筹款金额失败，事务将回滚");
         }
 
+        // 6. 核心触发器：只有当项目金额成功更新到数据库，且刚好达标时，才发送推送！
+        // 这样可以彻底避免“事务回滚但推送却发出去了”的幽灵 Bug
+        if (isTargetReached) {
+            sendTargetReachedPush(project);
+        }
+
         return true;
+    }
+
+    /**
+     * 辅助方法：去数据库捞出订阅者并发起推送
+     */
+    /**
+     * 辅助方法：去数据库捞出订阅者并发起推送，同时记录到数据库
+     */
+    private void sendTargetReachedPush(Project project) {
+        System.out.println("项目《" + project.getTitle() + "》已达标，准备给订阅者发送推送！");
+
+        // 1. 去 subscription 表查出所有订阅了这个项目的人
+        List<Subscription> subs = subscriptionMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Subscription>()
+                        .eq(Subscription::getProjectId, project.getId())
+        );
+
+        if (subs.isEmpty()) {
+            System.out.println("该项目没有人订阅，取消推送。");
+            return;
+        }
+
+        // 2. 提取出这批用户的 userId 集合
+        List<Long> userIds = subs.stream().map(Subscription::getUserId).collect(java.util.stream.Collectors.toList());
+
+        // 3. 去 user 表，把这些人的 pushToken 查出来
+        List<User> users = userMapper.selectBatchIds(userIds);
+        List<String> pushTokens = users.stream()
+                .map(User::getPushToken)
+                // 过滤掉那些没绑定鸿蒙设备（token为空）的用户
+                .filter(token -> token != null && !token.trim().isEmpty())
+                .collect(java.util.stream.Collectors.toList());
+
+        String title = "感谢有您，项目圆满达标！";
+        String body = "您一直牵挂的公益项目《" + project.getTitle() + "》已成功筹集全部善款，爱心微风已经送达！";
+
+        // 4. 发送系统底层推送 (横幅通知)
+        if (!pushTokens.isEmpty()) {
+            huaweiPushUtil.sendPushMessage(pushTokens, title, body);
+        } else {
+            System.out.println("订阅者都没有绑定鸿蒙设备 Token，跳过系统推送，但仍生成站内信记录。");
+        }
+
+        // 5. 新增：将消息记录批量写入 push_record 表，供前端“消息中心”拉取！
+        List<PushRecord> pushRecords = new java.util.ArrayList<>();
+        for (Long userId : userIds) {
+            PushRecord record = new PushRecord();
+            record.setUserId(userId);
+            record.setProjectId(project.getId());
+            record.setTitle(title);
+            record.setContent(body);
+            record.setType(3); // 3 代表“捐赠成功/项目达标”
+            record.setSendTime(java.time.LocalDateTime.now());
+            record.setSendStatus(1); // 1 代表发送成功
+            pushRecords.add(record);
+        }
+
+        // 使用 MyBatis-Plus 的 saveBatch 批量插入数据库
+        if (!pushRecords.isEmpty()) {
+            pushRecordService.saveBatch(pushRecords);
+            System.out.println("✅ 已成功将 " + pushRecords.size() + " 条消息记录写入 push_record 表！");
+        }
     }
 
     @Override

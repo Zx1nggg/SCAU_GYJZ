@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1")
 public class UserController {
@@ -31,6 +33,25 @@ public class UserController {
     // 注入之前写的 JWT 工具类
     @Autowired
     private JwtUtils jwtUtils;
+
+    @PutMapping("/users/{userId}/token")
+    public Result updatePushToken(@PathVariable Long userId, @RequestBody Map<String, String> params) {
+        String pushToken = params.get("pushToken");
+
+        if (pushToken == null || pushToken.trim().isEmpty()) {
+            return Result.fail("Push Token 不能为空");
+        }
+
+        User user = userService.getById(userId);
+        if (user != null) {
+            user.setPushToken(pushToken);
+            userService.updateById(user);
+            System.out.println("[设备绑定] 用户 ID: " + userId + " 已绑定鸿蒙 Token: " + pushToken);
+            return Result.success("设备绑定成功");
+        }
+
+        return Result.fail("找不到该用户");
+    }
 
     @PostMapping("/donor/Login")
     public Result donorLogin(@RequestBody User user){

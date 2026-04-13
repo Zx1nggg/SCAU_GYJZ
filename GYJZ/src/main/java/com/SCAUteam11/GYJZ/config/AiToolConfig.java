@@ -74,33 +74,44 @@ public class AiToolConfig {
     public record DonationQueryRequest(String phone) {}
 
     @Bean
-    @Description("当用户询问'我捐了多少钱'、'帮我查我的捐赠记录'、'我的证书'时调用此工具。必须先知道用户的注册手机号才能查！")
+    @Description("当用户询问'我捐了多少钱'、'帮我查我的捐赠记录'时调用。入参必须是11位手机号！")
     public Function<DonationQueryRequest, String> queryMyDonations(DonationMapper donationMapper, ProjectMapper projectMapper) {
         return request -> {
-            System.out.println("🦕 观铃正在努力翻找捐赠账本，手机号：" + request.phone());
-
-            LambdaQueryWrapper<Donation> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(Donation::getDonorPhone, request.phone())
-                    .eq(Donation::getDonationStatus, 1) // 只查支付成功的
-                    .orderByDesc(Donation::getDonationTime)
-                    .last("LIMIT 3"); // 最多返回最近3条，防止上下文撑爆大模型
-
-            List<Donation> donations = donationMapper.selectList(wrapper);
-
-            if (donations == null || donations.isEmpty()) {
-                return "查过了，这个手机号还没有任何捐赠记录哦，鼓励ta像勇敢的恐龙一样迈出第一步吧！";
+            // 🌟 1. 增加非空校验，防止空指针
+            if (request.phone() == null || request.phone().trim().isEmpty()) {
+                return "呜，小铃还没拿到你的手机号，没法去翻账本呢。";
             }
 
-            StringBuilder sb = new StringBuilder("查到最近的爱心记录啦：\n");
-            for (Donation d : donations) {
-                Project p = projectMapper.selectById(d.getProjectId());
-                String pName = (p != null) ? p.getTitle() : "未知神秘项目";
-                sb.append(String.format("- 在 %s 为【%s】捐赠了 %s 元。\n",
-                        d.getDonationTime().toLocalDate().toString(), pName, d.getAmount()));
-            }
-            sb.append("请用观铃那温柔又有点笨拙的语气，好好夸奖并感谢用户的善举（记得加上嘎哦）！");
+            System.out.println("🦕 观铃正在为手机号查询记录：" + request.phone());
 
-            return sb.toString();
+            try {
+                LambdaQueryWrapper<Donation> wrapper = new LambdaQueryWrapper<>();
+                // 🌟 2. 确保这里的字段名 getDonorPhone 与你数据库映射一致
+                wrapper.eq(Donation::getDonorPhone, request.phone())
+                        .eq(Donation::getDonationStatus, 1)
+                        .orderByDesc(Donation::getDonationTime)
+                        .last("LIMIT 5"); // 给它多看两行，展示更丰富
+
+                List<Donation> donations = donationMapper.selectList(wrapper);
+
+                if (donations == null || donations.isEmpty()) {
+                    return "查过了，这个手机号还没有任何捐赠记录。快去支持一下公益项目，让夏日的微风吹动起来吧！";
+                }
+
+                StringBuilder sb = new StringBuilder("查到你的爱心足迹啦：\n");
+                for (Donation d : donations) {
+                    Project p = projectMapper.selectById(d.getProjectId());
+                    String pName = (p != null) ? p.getTitle() : "神秘公益项目";
+                    // 🌟 3. 这里的格式化必须清晰，方便 AI 提取
+                    sb.append(String.format("- 【%s】项目：捐赠了 %s 元 (时间: %s)\n",
+                            pName, d.getAmount(), d.getDonationTime().toLocalDate().toString()));
+                }
+                sb.append("\n请用观铃充满活力的语气，好好夸奖用户的善良，记得带上嘎哦！");
+                return sb.toString();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return "呜……翻账本的时候不小心手滑了，可能是数据库刚才打了个盹。";
+            }
         };
     }
 }
