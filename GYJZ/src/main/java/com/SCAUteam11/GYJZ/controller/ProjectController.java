@@ -134,7 +134,7 @@ public class ProjectController {
 
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id}")//删除项目
     public Result deleteProject(@PathVariable Long id) {
         boolean success = projectService.deleteProject(id);
         if (success) {
