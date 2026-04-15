@@ -9,6 +9,7 @@ import com.SCAUteam11.GYJZ.entity.mysql.User;
 import com.SCAUteam11.GYJZ.mapper.mysql.OrganizationMapper;
 import com.SCAUteam11.GYJZ.mapper.mysql.RegisterApplyMapper;
 import com.SCAUteam11.GYJZ.mapper.mysql.UserMapper;
+import com.SCAUteam11.GYJZ.service.IUserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +32,8 @@ public class SAdminController {
     private OrganizationMapper orgMapper;
     @Autowired
     private UserMapper userMapper;
-
+    @Autowired
+    private IUserService userService;
     /**
      * 1. 获取机构入驻申请列表
      */
@@ -63,6 +65,7 @@ public class SAdminController {
             vo.setOrgStatus(apply.getApplyStatus());
             vo.setAuditRemark(apply.getAuditRemark());
             vo.setCreateTime(apply.getCreateTime());
+            vo.setQualification(apply.getQualification()); // 补充之前忘记加的条件
             return vo;
         }).collect(Collectors.toList());
 
@@ -72,52 +75,41 @@ public class SAdminController {
         return Result.success(resultPage);
     }
 
+
     /**
-     * 2. 审核机构入驻申请 (核心业务逻辑)
+     * 统一的审核接口：前端传 applyId, status (1通过/2拒绝), auditRemark(仅拒绝时需要), auditorId
      */
-    @PutMapping("/organizations/{id}/audit")
-    @Transactional(rollbackFor = Exception.class)
-    public Result auditApplication(@PathVariable Long id, @RequestBody Map<String, Object> params) {
+    @PostMapping("/registerApply/audit")
+    public Result auditRegisterApply(@RequestBody Map<String, Object> params) {
+        // 安全地解析参数
+        Long applyId = Long.valueOf(params.get("applyId").toString());
         Integer status = (Integer) params.get("status");
+        Long auditorId = params.get("auditorId") != null ? Long.valueOf(params.get("auditorId").toString()) : null;
         String auditRemark = (String) params.get("auditRemark");
 
-        RegisterApply apply = applyMapper.selectById(id);
-        if (apply == null) return Result.fail("申请记录不存在");
-        if (apply.getApplyStatus() != 0) return Result.fail("该申请已被处理，请勿重复操作");
+        try {
+            // 根据状态分发到到写好的那两个 Service 方法
+            if (status == 1) {
+                // 通过
+                userService.approveAdminApply(applyId, auditorId);
+            } else if (status == 2) {
+                // 拒绝 (如果是拒绝，必须要有理由)
+                if (auditRemark == null || auditRemark.trim().isEmpty()) {
+                    return Result.fail("拒绝审核必须填写原因");
+                }
+                userService.rejectAdminApply(applyId, auditRemark, auditorId);
+            } else {
+                return Result.fail("未知的审核状态");
+            }
+            return Result.success("审核处理成功");
 
-        // 1. 更新申请表状态
-        apply.setApplyStatus(status);
-        apply.setAuditRemark(auditRemark);
-        apply.setAuditTime(LocalDateTime.now());
-        // 假设当前操作的超管ID可以从Token里拿，这里暂时留空或写死
-        applyMapper.updateById(apply);
-
-        // 2. 核心：如果审核通过，自动生成机构和管理员账号
-        if (status == 1) {
-            // (A) 创建机构记录
-            Organization org = new Organization();
-            org.setName(apply.getInstitutionName());
-            org.setCode(apply.getCreditCode());
-            org.setContactPerson(apply.getContactPerson());
-            org.setContactPhone(apply.getContactPhone());
-            org.setContent(apply.getApplyReason()); // 把申请理由作为初始简介
-            org.setCreateTime(LocalDateTime.now());
-            orgMapper.insert(org);
-
-            // (B) 创建该机构的初始管理员账号 (Role: 2)
-            User adminUser = new User();
-            adminUser.setUsername(apply.getPhone()); // 默认用手机号做登录名
-            adminUser.setPhone(apply.getPhone());
-            adminUser.setPassword(apply.getPassword()); // 假设之前申请时已加密
-            adminUser.setNickname(apply.getContactPerson()); // 默认昵称为联系人姓名
-            adminUser.setRole(2); // 2 代表机构管理员
-            adminUser.setOrgId(org.getId()); // 绑定刚刚生成的机构ID
-            adminUser.setUserStatus(1); // 账号正常
-            adminUser.setCreateTime(LocalDateTime.now());
-            userMapper.insert(adminUser);
+        } catch (RuntimeException e) {
+            // 精准捕获在 Service 里抛出的 "该手机号已被注册" 等业务提示
+            return Result.fail(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail("系统异常，审核失败");
         }
-
-        return Result.success("审核处理完成");
     }
 
     /**

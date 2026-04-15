@@ -2,7 +2,7 @@ package com.SCAUteam11.GYJZ.controller;
 
 import com.SCAUteam11.GYJZ.entity.Result;
 import com.SCAUteam11.GYJZ.entity.mysql.PushRecord;
-import com.SCAUteam11.GYJZ.service.impl.PushRecordService;
+import com.SCAUteam11.GYJZ.service.impl.PushRecordServiceImpl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/push")
 public class PushController {
     @Autowired
-    private PushRecordService pushRecordService;
+    private PushRecordServiceImpl pushRecordService;
 
     /**
      * 获取我的推送消息列表（供前端消息中心调用）

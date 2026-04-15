@@ -47,7 +47,7 @@ public class SubscriptionServiceImpl extends ServiceImpl<SubscriptionMapper, Sub
 
     @Override
     public List<SubscriptionVO> getMySubscriptions(Long userId) {
-        // 调用 Mapper 中我们手写的连表 SQL
+        // 调用 Mapper 中的 SQL
         return baseMapper.selectMySubscriptions(userId);
     }
 }

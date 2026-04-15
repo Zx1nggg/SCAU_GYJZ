@@ -9,5 +9,5 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class PushRecordService extends ServiceImpl<PushRecordMapper, PushRecord> implements IPushRecordService {
+public class PushRecordServiceImpl extends ServiceImpl<PushRecordMapper, PushRecord> implements IPushRecordService {
 }

@@ -68,7 +68,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             targetUser = (User) o;
         }
 
-        // 3. 统一校验密码（修复了原先缓存为空时不校验密码的严重安全漏洞！）
+        // 3. 统一校验密码（修复了原先缓存为空时不校验密码的安全漏洞）
         if (passwordEncoder.matches(user.getPassword(), targetUser.getPassword())) {
             // 4. 如果密码正确，且数据是从数据库拿出来的，就存入 Redis
             if (o == null) {
@@ -244,8 +244,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // ========== 2. 新增：创建该机构的专属档案 ==========
         Organization org = new Organization();
         org.setName(apply.getInstitutionName());
-        // 先用手机号作为联系电话
-        org.setContactPhone(apply.getPhone());
+        org.setCode(apply.getCreditCode());
+        org.setContactPerson(apply.getContactPerson());
+        org.setContactPhone(apply.getContactPhone() != null ? apply.getContactPhone() : apply.getPhone());
+        org.setContent(apply.getApplyReason());
         org.setOrgStatus(1); // 1-正常
         org.setCreateTime(LocalDateTime.now());
 
@@ -259,6 +261,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // ========== 3. 创建管理员用户 ==========
         // 生成随机账号
         String username = UsernameGenerator.generateAccount(apply.getInstitutionName());
+        // TODO: 由于generateAccount可能生成同名的账户，已新增generateUniteAccount方法，使用此方法需实现接口AccountValidator，这里先抛异常处理，灾害等级-中
+        long count = userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
+        if (count > 0) {
+            throw new RuntimeException("生成的账号已存在，请联系管理员处理");
+        }
 
         User adminUser = new User();
         adminUser.setUsername(username);
@@ -349,6 +356,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             Organization org = organizationMapper.selectById(user.getOrgId());
             if (org != null) {
                 // 将管理员修改后的 "昵称/真实姓名" 映射为机构的 "联系人"
+                // TODO: 混淆了NickName和ContactPerson的联系，后面看需要修改，灾害等级-低
                 if (request.getNickname() != null) {
                     org.setContactPerson(request.getNickname());
                 }

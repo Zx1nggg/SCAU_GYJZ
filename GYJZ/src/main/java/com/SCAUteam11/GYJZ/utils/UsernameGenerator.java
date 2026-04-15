@@ -9,7 +9,6 @@ import java.util.Random;
 
 public class UsernameGenerator {
     private static final Random RANDOM = new Random();
-
     /**
      * 生成机构专属账号
      * 规则：机构拼音首字母缩写(4-6位) + 下划线 + 4位随机数字
@@ -53,7 +52,7 @@ public class UsernameGenerator {
                 try {
                     String[] pinyinArray = PinyinHelper.toHanyuPinyinStringArray(c, format);
                     if (pinyinArray != null && pinyinArray.length > 0) {
-                        abbr.append(pinyinArray[0].charAt(0));
+                        abbr.append(pinyinArray[0].charAt(0)); //取拼音的第一个字母
                     }
                 } catch (Exception e) {
                     // 转换失败，跳过

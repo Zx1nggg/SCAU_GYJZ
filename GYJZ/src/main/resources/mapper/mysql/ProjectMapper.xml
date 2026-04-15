@@ -23,4 +23,12 @@
         from project
         where org_id = #{orgId}
     </select>
+    <select id="selectTotalDonationCount" resultType="java.lang.Long">
+        SELECT COUNT(d.id) as totalDonationCount
+        FROM donation d
+        INNER JOIN project p ON d.project_id = p.id
+        WHERE p.org_id = #{orgId}
+        AND d.donation_status = 1
+
+    </select>
 </mapper>

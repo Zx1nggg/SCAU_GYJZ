@@ -112,30 +112,31 @@ public class UserController {
             return Result.fail("注册失败");
         }
     }
+    // NOTE 相关的方法已经迁移到了SAdminController并合并为一个auditRegisterApply，故下面方法废除
 
-    @PostMapping("/admin/registerApply")
-    public Result submitAdminApply(@RequestBody RegisterApply apply){
-        userService.submitAdminApply(apply);
-        return Result.success();
-    }
-
-
-
-    @PostMapping("/admin/approveApply")
-    public  Result approveApply(@RequestBody Long applyId,Long auditorId){
-        try {
-            userService.approveAdminApply(applyId, auditorId);
-            return Result.success("审核处理成功");
-        } catch (RuntimeException e) {
-            // 捕获你在 Service 层抛出的具体业务异常 (如"该手机号已被注册"、"申请不存在")
-            return Result.fail(e.getMessage());
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.fail("系统异常，审核失败");
-        }
-    }
+//    @PostMapping("/admin/registerApply")
+//    public Result submitAdminApply(@RequestBody RegisterApply apply){
+//        userService.submitAdminApply(apply);
+//        return Result.success();
+//    }
+//
+//
+//
+//    @PostMapping("/admin/approveApply")
+//    public  Result approveApply(@RequestBody Long applyId,Long auditorId){
+//        try {
+//            userService.approveAdminApply(applyId, auditorId);
+//            return Result.success("审核处理成功");
+//        } catch (RuntimeException e) {
+//            // 捕获你在 Service 层抛出的具体业务异常 (如"该手机号已被注册"、"申请不存在")
+//            return Result.fail(e.getMessage());
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return Result.fail("系统异常，审核失败");
+//        }
+//    }
     /**
-     * 🌟 统一的用户资料更新接口（捐赠人、机构管理员通用）
+     * 统一的用户资料更新接口（捐赠人、机构管理员通用）
      * 路径：PUT /api/v1/users/{userId}
      * 前端通过 authStore 拿到 userId 直接拼在路径上
      */

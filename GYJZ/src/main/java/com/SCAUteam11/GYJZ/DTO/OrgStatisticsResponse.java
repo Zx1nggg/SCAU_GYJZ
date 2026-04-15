@@ -15,4 +15,5 @@ public class OrgStatisticsResponse {
     private Long totalProjectCount; // 总项目数
     private BigDecimal totalAmount; // 总金额
     private Long totalDonorCount; // 总捐赠人数
+    private Long totalDonationCount; // 总捐赠次数
 }

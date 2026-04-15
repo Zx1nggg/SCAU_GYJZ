@@ -38,7 +38,7 @@ public class DonationServiceImpl extends ServiceImpl<DonationMapper, Donation> i
     @Autowired
     private UserMapper userMapper;
     @Autowired
-    private PushRecordService pushRecordService; // 注入推送记录服务
+    private PushRecordServiceImpl pushRecordService; // 注入推送记录服务
 
     @Override
     public boolean addDonation(Donation donation) {

@@ -33,4 +33,6 @@ public class Project {
     private LocalDateTime createTime; // 创建时间
     @TableField(exist = false) //表示该字段在数据库中不存在
     private List<Donation> donations; // 一对多
+    @TableField(exist = false)
+    private String orgName; // 返回给前端显示用
 }

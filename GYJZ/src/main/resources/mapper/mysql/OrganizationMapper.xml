@@ -4,4 +4,9 @@
 
 <mapper namespace="com.SCAUteam11.GYJZ.mapper.mysql.OrganizationMapper">
 
+    <select id="selectOrgNameByOrgId" resultType="java.lang.String">
+        select name as orgName
+        from organization
+        where id=#{org_id}
+    </select>
 </mapper>
