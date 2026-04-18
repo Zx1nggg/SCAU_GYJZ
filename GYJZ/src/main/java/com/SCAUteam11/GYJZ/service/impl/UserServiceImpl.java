@@ -124,6 +124,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         if (!user.getPhone().matches("^1[3-9]\\d{9}$")) {
             throw new RuntimeException("手机号格式不正确");
         }
+        if (!StringUtils.hasLength(user.getVerifyCode())) {
+            throw new RuntimeException("验证码不能为空");
+        }
+
+        // 拼接当时存入 Redis 的 Key
+        String redisKey = "verify:code:" + user.getPhone();
+        // 取出缓存中的验证码
+        String storedCode = (String) redisUtil.get(redisKey);
+
+        if (storedCode == null) {
+            throw new RuntimeException("验证码已过期或未发送，请重新获取");
+        }
+        if (!storedCode.equals(user.getVerifyCode())) {
+            throw new RuntimeException("验证码不正确");
+        }
+
+        // 校验成功！立刻从 Redis 删除该验证码，防止被恶意二次利用（重放攻击）
+        redisUtil.del(redisKey);
 
         // 检查数据库中是否已存在该用户
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();

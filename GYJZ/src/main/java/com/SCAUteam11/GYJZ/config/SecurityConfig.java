@@ -41,7 +41,7 @@ public class SecurityConfig {
                         // 图片路径也放行了
                         .requestMatchers("/images/**").permitAll()
                         // 下面这些路径放行（不登录也能访问），比如登录、注册、查看公开的项目列表等 JM测试查看浏览列表
-                        .requestMatchers("/api/v1/donor/Login","/api/v1/donor/Register","/api/v1/admin/Login","/api/v1/admin/registerApply","/api/v1/donations").permitAll()
+                        .requestMatchers("/api/v1/donor/Login","/api/v1/donor/Register","/api/v1/admin/Login","/api/v1/admin/registerApply","/api/v1/common/sendCode").permitAll()
                         // 鸿蒙 App 即使没有 Token 也能正常浏览公益项目
                         .requestMatchers(HttpMethod.GET, "/api/v1/projects", "/api/v1/projects/**").permitAll()
                         // Swagger 接口文档也放行（使用了 springdoc）

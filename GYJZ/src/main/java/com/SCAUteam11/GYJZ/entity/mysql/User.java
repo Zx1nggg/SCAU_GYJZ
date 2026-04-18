@@ -31,4 +31,6 @@ public class User {
     private LocalDateTime lastLogin;
     @TableField(fill = FieldFill.INSERT) // 插入自动填充
     private LocalDateTime createTime;
+    @TableField(exist = false)
+    private String verifyCode; // 接收前端传来的验证码
 }
