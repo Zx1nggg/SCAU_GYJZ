@@ -15,4 +15,6 @@ public interface IUserService extends IService<User> {
     void approveAdminApply(Long applyId, Long auditorId); //超级管理员批准注册申请
     void rejectAdminApply(Long applyId, String reason,Long auditorId); //超级管理员拒绝注册申请
     UserUpdateResponse updateUser(Long userId, UserUpdateRequest request); // 更新用户信息
+    void updatePassword(Long userId, String oldPassword, String newPassword);
+    void resetPassword(Long userId); // 重置密码
 }

@@ -51,6 +51,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         if (ObjectUtils.isEmpty(user.getPhone()) || !StringUtils.hasLength(user.getPassword())) {
             throw new RuntimeException("手机号或密码不能为空");
         }
+
         // 使用手机号作为 Redis 的 Key
         String redisKey = String.valueOf(user.getPhone());
 
@@ -70,6 +71,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
         // 3. 统一校验密码（修复了原先缓存为空时不校验密码的安全漏洞）
         if (passwordEncoder.matches(user.getPassword(), targetUser.getPassword())) {
+            // 放在密码校验通过之后，保证空指针被修复，检验用户状态
+            if (targetUser.getUserStatus() != null && targetUser.getUserStatus() == 2) {
+                throw new RuntimeException("账号因为违反相关约定已被封禁，请联系管理员解封");
+            }
             // 4. 如果密码正确，且数据是从数据库拿出来的，就存入 Redis
             if (o == null) {
                 // 使用三个参数的 set 方法：设置 1800 秒（30分钟）的过期时间
@@ -103,6 +108,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
         // 统一校验密码
         if (passwordEncoder.matches(user.getPassword(), targetUser.getPassword())) {
+            // 放在密码校验通过之后，保证空指针被修复，检验用户状态
+            if (targetUser.getUserStatus() != null && targetUser.getUserStatus() == 2) {
+                throw new RuntimeException("账号因为违反相关约定已被封禁，请联系管理员解封");
+            }
             // 密码正确且未缓存，则存入缓存，过期时间 1800 秒
             if (o == null) {
                 redisUtil.set(redisKey, targetUser, 1800);
@@ -400,6 +409,73 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         response.setSuccess(true);
 
         return response;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updatePassword(Long userId, String oldPassword, String newPassword) {
+        // 1. 查询用户是否存在
+        User user = baseMapper.selectById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+
+        // 2. 校验旧密码
+        // passwordEncoder.matches(明文, 密文) 是专门用来校验加盐密码的
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new RuntimeException("原密码错误，请重新输入");
+        }
+
+        // 防呆设计：新旧密码不能一样
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new RuntimeException("新密码不能与原密码相同");
+        }
+
+        // 3. 加密新密码并设置到实体中
+        user.setPassword(passwordEncoder.encode(newPassword));
+
+        // 4. 更新到数据库
+        int result = baseMapper.updateById(user);
+        if (result <= 0) {
+            throw new RuntimeException("密码更新失败，请重试");
+        }
+        if (user.getPhone() != null) {
+            redisUtil.del(String.valueOf(user.getPhone()));
+        }
+        if (user.getUsername() != null) {
+            redisUtil.del(user.getUsername());
+        }
+        // 又两种情况了
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void resetPassword(Long userId) {
+        // 1. 查询用户是否存在
+        User user = baseMapper.selectById(userId);
+        if (user == null) {
+            throw new RuntimeException("该用户不存在或已被删除");
+        }
+
+        // 2. 加密默认密码
+        String defaultPassword = "GY1234";
+        user.setPassword(passwordEncoder.encode(defaultPassword));
+
+        // 3. 更新到数据库
+        int result = baseMapper.updateById(user);
+        if (result <= 0) {
+            throw new RuntimeException("重置密码失败，请重试");
+        }
+
+        // 清理 Redis 缓存
+        // 无论他是捐赠人（手机号作为Key）还是管理员（Username作为Key），进行无差别扫荡
+        if (user.getPhone() != null) {
+            redisUtil.del(String.valueOf(user.getPhone()));
+        }
+        if (user.getUsername() != null) {
+            redisUtil.del(user.getUsername());
+        }
+
     }
 
 

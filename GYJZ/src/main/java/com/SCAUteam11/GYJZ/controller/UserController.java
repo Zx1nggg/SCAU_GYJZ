@@ -12,6 +12,7 @@ import com.SCAUteam11.GYJZ.utils.JwtUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -114,11 +115,11 @@ public class UserController {
     }
     // NOTE 相关的方法已经迁移到了SAdminController并合并为一个auditRegisterApply，故下面方法废除
 
-//    @PostMapping("/admin/registerApply")
-//    public Result submitAdminApply(@RequestBody RegisterApply apply){
-//        userService.submitAdminApply(apply);
-//        return Result.success();
-//    }
+    @PostMapping("/admin/registerApply")
+    public Result submitAdminApply(@RequestBody RegisterApply apply){
+        userService.submitAdminApply(apply);
+        return Result.success();
+    }
 //
 //
 //
@@ -151,6 +152,48 @@ public class UserController {
         } catch (Exception e) {
             e.printStackTrace();
             return Result.fail("系统繁忙，更新失败");
+        }
+    }
+
+    // 管理员修改密码
+    @PutMapping("/users/{userId}/password")
+    public Result updatePassword(@PathVariable Long userId, @RequestBody Map<String, String> params) {
+        String oldPassword = params.get("oldPassword");
+        String newPassword = params.get("newPassword");
+
+        // 1. 基础非空校验
+        if (!StringUtils.hasLength(oldPassword) || !StringUtils.hasLength(newPassword)) {
+            return Result.fail("原密码或新密码不能为空");
+        }
+
+        // 2. 拦截长度或格式
+        if (newPassword.length() < 6) {
+            return Result.fail("新密码长度不能少于6位");
+        }
+
+        try {
+            // 3. 调用 Service 层核心逻辑
+            userService.updatePassword(userId, oldPassword, newPassword);
+            return Result.success("密码修改成功");
+        } catch (RuntimeException e) {
+            return Result.fail(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail("系统异常，修改失败");
+        }
+    }
+
+    @PutMapping("/users/{userId}/reset-password")
+    public Result resetPassword(@PathVariable Long userId) {
+        try {
+            // 调用 Service 层核心逻辑
+            userService.resetPassword(userId);
+            return Result.success("密码已成功重置为默认密码");
+        } catch (RuntimeException e) {
+            return Result.fail(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.fail("系统异常，重置失败");
         }
     }
 }
