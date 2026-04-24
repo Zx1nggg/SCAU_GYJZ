@@ -232,6 +232,7 @@ public class DonationController {
 
                 // 3 踢掉所有的【项目列表】缓存！(保证用户返回首页立刻看到进度条上涨)
                 clearProjectListCache();
+                clearDonationListCache();
                 return Result.success("捐赠成功，感谢您的爱心！");
             } else {
                 // 如果因为某些业务校验失败（比如项目已结束不能再捐），我们需要手动把锁提前释放掉，让用户可以重新操作
